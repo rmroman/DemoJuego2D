@@ -66,6 +66,7 @@ public class PantallaSpaceInvaders extends Pantalla
     public void render(float delta) {
         // Actualizar los objetos
         actualizarBala(delta);
+        verificarChoques();
 
         borrarPantalla(0.2f, 0.2f, 0.2f);
         batch.setProjectionMatrix(camara.combined);
@@ -86,9 +87,28 @@ public class PantallaSpaceInvaders extends Pantalla
         batch.end();
     }
 
+    private void verificarChoques() {
+        if (bala!=null) {
+            for (int i = arrAliens.size - 1; i >= 0; i--) {
+                Alien alien = arrAliens.get(i);
+                Rectangle rectAlien = alien.sprite.getBoundingRectangle();
+                Rectangle rectBala = bala.sprite.getBoundingRectangle();
+                if (rectAlien.overlaps(rectBala)) {
+                    // Colisión!!!!!!
+                    arrAliens.removeIndex(i);
+                    bala = null;
+                    break;
+                }
+            }
+        }
+    }
+
     private void actualizarBala(float tiempo) {
         if (bala != null) {
             bala.mover(tiempo);
+            if (bala.sprite.getY()>ALTO) {
+                bala = null;
+            }
         }
     }
 
@@ -138,8 +158,10 @@ public class PantallaSpaceInvaders extends Pantalla
 
             if (rectBoton.contains(v.x, v.y)) {
                 // Disparar!!!!!
-                bala = new Bala(texturaBala, nave.sprite.getX()+nave.sprite.getWidth()/2,
-                        nave.sprite.getY()+nave.sprite.getHeight());
+                if (bala==null) {  // no existe?
+                    bala = new Bala(texturaBala, nave.sprite.getX() + nave.sprite.getWidth() / 2,
+                            nave.sprite.getY() + nave.sprite.getHeight());
+                }
             } else if (v.x<=ANCHO/2) {
                 // izq
                 nave.moverIzquierda();
