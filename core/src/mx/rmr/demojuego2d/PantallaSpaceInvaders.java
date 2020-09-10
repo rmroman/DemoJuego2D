@@ -14,6 +14,11 @@ public class PantallaSpaceInvaders extends Pantalla
 
     // Aliens - enemigos
     private Array<Alien> arrAliens;
+    private float timerAnimaAlien;
+    private final float TIEMPO_FRAME_ALIEN = 0.3f;
+    private float DX_ALIEN = 10;    // Cambia de + a -
+    private float DY_ALIEN = 60;
+    private int pasoAliens = 10;    // 0->20, pero inicia en el centro
 
     // Nave
     private Nave nave;
@@ -24,11 +29,12 @@ public class PantallaSpaceInvaders extends Pantalla
     private Bala bala;
     private Texture texturaBala;
 
+
     public PantallaSpaceInvaders(Juego juego) {
         this.juego = juego;
     }
 
-    // INICIALIZAR lso objetos
+    // INICIALIZAR los objetos
     @Override
     public void show() {
         crearAliens();
@@ -52,11 +58,14 @@ public class PantallaSpaceInvaders extends Pantalla
     }
 
     private void crearAliens() {
-        Texture texturaAlien = new Texture("space/enemigoArriba.png");
+        Texture texturaAlienArriba = new Texture("space/enemigoArriba.png");
+        Texture texturaAlienAbajo = new Texture("space/enemigoAbajo.png");
+        Texture texturaAlienMuriendo = new Texture("space/enemigoExplota.png");
         arrAliens = new Array<>(12*5);
         for (int i=0; i<5; i++) {   // renglones, y
             for (int j=0; j<12; j++) {  // columnas, x
-                Alien alien = new Alien(texturaAlien, 280 + j*60, 350 + i*60);
+                Alien alien = new Alien(texturaAlienArriba, texturaAlienAbajo,
+                        texturaAlienMuriendo, 280 + j*60, 350 + i*60);
                 arrAliens.add(alien);
             }
         }
@@ -67,6 +76,7 @@ public class PantallaSpaceInvaders extends Pantalla
         // Actualizar los objetos
         actualizarBala(delta);
         verificarChoques();
+        actualizarAliens(delta);        // 1/60
 
         borrarPantalla(0.2f, 0.2f, 0.2f);
         batch.setProjectionMatrix(camara.combined);
@@ -87,6 +97,37 @@ public class PantallaSpaceInvaders extends Pantalla
         batch.end();
     }
 
+    private void actualizarAliens(float delta) {
+        timerAnimaAlien += delta;
+        if (timerAnimaAlien>=TIEMPO_FRAME_ALIEN) {
+            // Cambiar de estado
+            for (Alien alien : arrAliens) {     // Cambiar con índice para OPTIMIZAR
+                if (alien.getEstado() == EstadoAlien.ARRIBA) {
+                    alien.setEstado(EstadoAlien.ABAJO);
+                } else if (alien.getEstado()==EstadoAlien.ABAJO) {
+                    alien.setEstado(EstadoAlien.ARRIBA);
+                }
+                alien.moverHorizontal(DX_ALIEN);
+            }
+            timerAnimaAlien = 0;    // Reinicia el conteo
+            // Quitar aliens MURIENDO
+            for (int i=arrAliens.size-1; i>=0; i--) {
+                if (arrAliens.get(i).getEstado()==EstadoAlien.MURIENDO) {
+                    arrAliens.removeIndex(i);
+                }
+            }
+            // Cuenta pasos
+            pasoAliens++;
+            if (pasoAliens==20) {
+                pasoAliens = 0;
+                DX_ALIEN = -DX_ALIEN;
+                for (Alien alien : arrAliens) {     // Cambiar con índice para OPTIMIZAR
+                    alien.moverVertical(-DY_ALIEN);
+                }
+            }
+        }
+    }
+
     private void verificarChoques() {
         if (bala!=null) {
             for (int i = arrAliens.size - 1; i >= 0; i--) {
@@ -95,9 +136,12 @@ public class PantallaSpaceInvaders extends Pantalla
                 Rectangle rectBala = bala.sprite.getBoundingRectangle();
                 if (rectAlien.overlaps(rectBala)) {
                     // Colisión!!!!!!
-                    arrAliens.removeIndex(i);
-                    bala = null;
-                    break;
+                    if (alien.getEstado() != EstadoAlien.MURIENDO) {
+                        //arrAliens.removeIndex(i);
+                        alien.setEstado(EstadoAlien.MURIENDO);
+                        bala = null;
+                        break;
+                    }
                 }
             }
         }
