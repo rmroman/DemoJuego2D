@@ -71,6 +71,7 @@ public class PantallaSpaceInvaders extends Pantalla
         }
     }
 
+
     @Override
     public void render(float delta) {
         // Actualizar los objetos
