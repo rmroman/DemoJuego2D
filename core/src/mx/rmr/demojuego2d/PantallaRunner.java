@@ -3,6 +3,7 @@ package mx.rmr.demojuego2d;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.InputProcessor;
 import com.badlogic.gdx.graphics.Texture;
+import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.utils.Array;
 
@@ -13,6 +14,10 @@ public class PantallaRunner extends Pantalla
     // Personaje / mario
     private Mario mario;
     private Texture texturaMario;
+
+    // Bolas de fuego
+    private Texture texturaBolaFuego;
+    private Array<BolaFuego> arrBolasFuego;
 
     // Enemigo
     private Goomba goomba;
@@ -25,7 +30,10 @@ public class PantallaRunner extends Pantalla
     // Enemigos
     private Array<Goomba> arrEnemigos;
     private float timerCrearEnemigo;
-    private final float TIEMPO_CREA_ENEMIGO = 1;
+    private float TIEMPO_CREA_ENEMIGO = 1;    // VARIABLE
+    private float tiempoBase = 1;
+
+
 
     public PantallaRunner(Juego juego) {
         this.juego = juego;
@@ -37,14 +45,19 @@ public class PantallaRunner extends Pantalla
         crearFondo();
         crearGoomba();
         crearEnemigos();
+        crearBolasFuego();
 
         Gdx.input.setInputProcessor(new ProcesadorEntrada());
+    }
+
+    private void crearBolasFuego() {
+        texturaBolaFuego = new Texture("runner/bolaFuego.png");
+        arrBolasFuego = new Array<>();
     }
 
     private void crearEnemigos() {
         texturaGoomba = new Texture("runner/goomba.png");
         arrEnemigos = new Array<>();
-
     }
 
     private void crearGoomba() {
@@ -74,7 +87,15 @@ public class PantallaRunner extends Pantalla
         mario.render(batch);
         goomba.render(batch);
         dibujarEnemigos();
+        dibujarBolasFuego();
         batch.end();
+    }
+
+    private void dibujarBolasFuego() {
+        for (BolaFuego bola :
+                arrBolasFuego) {
+            bola.render(batch);
+        }
     }
 
     private void dibujarEnemigos() {
@@ -96,13 +117,58 @@ public class PantallaRunner extends Pantalla
         actualizarMario();
         actualizarCamara();
         actualizarEnemigos();
+        actualizarBolasFuego();
+        // Colisiones
+        verificarColisiones();      // Bolas de fuego y enemigos
+        verificarChoqueEnemigosPersonaje();
+    }
+
+    private void verificarChoqueEnemigosPersonaje() {
+        for (int i=arrEnemigos.size-1; i>=0; i--) {
+            Goomba goomba = arrEnemigos.get(i);
+            if (mario.sprite.getBoundingRectangle().overlaps(goomba.sprite.getBoundingRectangle())) {
+                // PERDIÓ !!!!!!!
+                mario.sprite.setY(ALTO);
+                arrEnemigos.removeIndex(i);
+                break;
+            }
+        }
+    }
+
+    private void verificarColisiones() {
+        for (int i=arrBolasFuego.size-1; i>=0; i--) {
+            BolaFuego bola = arrBolasFuego.get(i);      // UNA bola de fuego
+            for (int j=arrEnemigos.size-1; j>=0; j--) {
+                Goomba goomba = arrEnemigos.get(j);     // UN enemigo
+                if (bola.sprite.getBoundingRectangle().overlaps(goomba.sprite.getBoundingRectangle())) {
+                    // COLISION!!!
+                    arrEnemigos.removeIndex(j);
+                    arrBolasFuego.removeIndex(i);
+                    break;
+                }
+            }
+        }
+    }
+
+    private void actualizarBolasFuego() {
+        for (int i=arrBolasFuego.size-1; i>=0; i--) {
+            BolaFuego bola = arrBolasFuego.get(i);
+            bola.moverDerecha();
+            if (bola.sprite.getX()>ANCHO) {
+                arrBolasFuego.removeIndex(i);
+            }
+        }
     }
 
     private void actualizarEnemigos() {
         timerCrearEnemigo += Gdx.graphics.getDeltaTime();
         if (timerCrearEnemigo>=TIEMPO_CREA_ENEMIGO) {
             timerCrearEnemigo = 0;
-            Goomba goomba = new Goomba(texturaGoomba, ANCHO, 60);
+            TIEMPO_CREA_ENEMIGO = tiempoBase + MathUtils.random()*2;
+            if (tiempoBase>0) {
+                tiempoBase -= 0.01f;
+            }
+            Goomba goomba = new Goomba(texturaGoomba, ANCHO, 60 + MathUtils.random(0,2)*100);  // 60, 120, 180
             arrEnemigos.add(goomba);
         }
         for (int i = arrEnemigos.size-1; i >= 0; i--) {
@@ -151,6 +217,13 @@ public class PantallaRunner extends Pantalla
                 // SALTA!!!!!
                 mario.saltar();
                 Gdx.app.log("SALTO", "INICIO........");
+            } else if (v.x >= ANCHO/2) {
+                // Dispara
+                if (arrBolasFuego.size < 20) {
+                    BolaFuego bolaFuego = new BolaFuego(texturaBolaFuego, mario.sprite.getX(),
+                            mario.sprite.getY() + mario.sprite.getHeight()*0.5F);
+                    arrBolasFuego.add(bolaFuego);
+                }
             }
             return true;
         }
