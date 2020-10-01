@@ -2,10 +2,19 @@ package mx.rmr.demojuego2d;
 
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.InputProcessor;
+import com.badlogic.gdx.Preferences;
+import com.badlogic.gdx.graphics.OrthographicCamera;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.math.Vector3;
+import com.badlogic.gdx.scenes.scene2d.Actor;
+import com.badlogic.gdx.scenes.scene2d.Stage;
+import com.badlogic.gdx.scenes.scene2d.ui.Skin;
+import com.badlogic.gdx.scenes.scene2d.ui.Touchpad;
+import com.badlogic.gdx.scenes.scene2d.utils.ChangeListener;
 import com.badlogic.gdx.utils.Array;
+import com.badlogic.gdx.utils.viewport.StretchViewport;
+import com.badlogic.gdx.utils.viewport.Viewport;
 
 public class PantallaRunner extends Pantalla
 {
@@ -33,6 +42,14 @@ public class PantallaRunner extends Pantalla
     private float TIEMPO_CREA_ENEMIGO = 1;    // VARIABLE
     private float tiempoBase = 1;
 
+    // Texto
+    private Texto texto;        // Dibuja textos en la pantalla
+    private float puntos;
+
+    // HUD
+    private Stage escenaHUD;        // pad, botón disparo, marcador, etc
+    private OrthographicCamera camaraHUD;
+    private Viewport vistaHUD;
 
 
     public PantallaRunner(Juego juego) {
@@ -46,8 +63,66 @@ public class PantallaRunner extends Pantalla
         crearGoomba();
         crearEnemigos();
         crearBolasFuego();
+        crearTexto();
+        cargarPuntos();
+        crearHUD();
 
-        Gdx.input.setInputProcessor(new ProcesadorEntrada());
+        //Gdx.input.setInputProcessor(new ProcesadorEntrada());
+        Gdx.input.setInputProcessor(escenaHUD);
+    }
+
+    private void crearHUD() {
+        camaraHUD = new OrthographicCamera(ANCHO, ALTO);
+        camaraHUD.position.set(ANCHO/2, ALTO/2, 0);
+        camaraHUD.update();
+        vistaHUD = new StretchViewport(ANCHO, ALTO, camaraHUD);
+
+        // Escena
+        escenaHUD = new Stage(vistaHUD);
+        // Crea el pad
+        Skin skin = new Skin(); // Texturas para el pad
+        skin.add("fondo", new Texture("runner/fondoPad.png"));
+        skin.add("boton", new Texture("runner/botonPad.png"));
+        // Configura la vista del pad
+        Touchpad.TouchpadStyle estilo = new Touchpad.TouchpadStyle();
+        estilo.background = skin.getDrawable("fondo");
+        estilo.knob = skin.getDrawable("boton");
+        // Crea el pad
+        Touchpad pad = new Touchpad(64,estilo);     // Radio, estilo
+        pad.setBounds(16,16,256,256);               // x,y - ancho,alto
+        // Comportamiento del pad
+        pad.addListener(new ChangeListener() {
+            @Override
+            public void changed(ChangeEvent event, Actor actor) {
+                Touchpad pad = (Touchpad)actor;
+                if (pad.getKnobPercentX() > 0.20) { // Más de 20% de desplazamiento DERECHA
+                    //mario.setEstadoMover(Personaje.EstadoMovimento.DERECHA);
+                    mario.sprite.setX(mario.sprite.getX()+10);
+                } else if ( pad.getKnobPercentX() < -0.20 ) {   // Más de 20% IZQUIERDA
+                    //mario.setEstadoMover(Personaje.EstadoMovimento.IZQUIERDA);
+                    mario.sprite.setX(mario.sprite.getX()-10);
+                } else {
+                    //mario.setEstadoMover(Personaje.EstadoMovimento.QUIETO);
+                }
+                // Y
+                if (pad.getKnobPercentY()>0.5) {
+                    Gdx.app.log("SALTO", "% " + pad.getKnobPercentY());
+                    mario.saltar();
+                }
+            }
+        });
+        pad.setColor(1,1,1,0.7f);   // Transparente
+        // Crea la escena y agrega el pad
+        escenaHUD.addActor(pad);
+    }
+
+    private void cargarPuntos() {
+        Preferences prefs = Gdx.app.getPreferences("marcador");
+        puntos = prefs.getFloat("PUNTOS", 0);
+    }
+
+    private void crearTexto() {
+        texto = new Texto("runner/game.fnt");
     }
 
     private void crearBolasFuego() {
@@ -88,7 +163,19 @@ public class PantallaRunner extends Pantalla
         goomba.render(batch);
         dibujarEnemigos();
         dibujarBolasFuego();
+        dibujarTexto();
         batch.end();
+
+        // HUD ****************************
+        batch.setProjectionMatrix(camaraHUD.combined);
+        escenaHUD.draw();
+    }
+
+    private void dibujarTexto() {
+        texto.mostrarMensaje(batch, "Super Mario Tec", ANCHO/2, 0.9f*ALTO);
+        //puntos += Gdx.graphics.getDeltaTime();
+        int puntosInt = (int)puntos;
+        texto.mostrarMensaje(batch, "" + puntosInt, ANCHO/2*0.1f, 0.1f*ALTO);
     }
 
     private void dibujarBolasFuego() {
@@ -109,10 +196,10 @@ public class PantallaRunner extends Pantalla
 
     private void actualizar() {
 
-        xFondo-=5;
+        /*xFondo-=5;
         if (xFondo==-texturaFondo.getWidth()) {
             xFondo = 0;
-        }
+        }*/
 
         actualizarMario();
         actualizarCamara();
@@ -144,10 +231,19 @@ public class PantallaRunner extends Pantalla
                     // COLISION!!!
                     arrEnemigos.removeIndex(j);
                     arrBolasFuego.removeIndex(i);
+                    // Contar puntos
+                    puntos += 25;
+                    guardarPreferencias();
                     break;
                 }
             }
         }
+    }
+
+    private void guardarPreferencias() {
+        Preferences prefs = Gdx.app.getPreferences("marcador");
+        prefs.putFloat("PUNTOS", puntos);
+        prefs.flush();  // OBLIGATORIO
     }
 
     private void actualizarBolasFuego() {
