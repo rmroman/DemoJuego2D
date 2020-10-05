@@ -3,15 +3,23 @@ package mx.rmr.demojuego2d;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.InputProcessor;
 import com.badlogic.gdx.Preferences;
+import com.badlogic.gdx.assets.AssetManager;
+import com.badlogic.gdx.audio.Music;
+import com.badlogic.gdx.audio.Sound;
 import com.badlogic.gdx.graphics.OrthographicCamera;
 import com.badlogic.gdx.graphics.Texture;
+import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.scenes.scene2d.Actor;
+import com.badlogic.gdx.scenes.scene2d.InputEvent;
 import com.badlogic.gdx.scenes.scene2d.Stage;
+import com.badlogic.gdx.scenes.scene2d.ui.ImageButton;
 import com.badlogic.gdx.scenes.scene2d.ui.Skin;
 import com.badlogic.gdx.scenes.scene2d.ui.Touchpad;
 import com.badlogic.gdx.scenes.scene2d.utils.ChangeListener;
+import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
+import com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable;
 import com.badlogic.gdx.utils.Array;
 import com.badlogic.gdx.utils.viewport.StretchViewport;
 import com.badlogic.gdx.utils.viewport.Viewport;
@@ -51,6 +59,9 @@ public class PantallaRunner extends Pantalla
     private OrthographicCamera camaraHUD;
     private Viewport vistaHUD;
 
+    // Música / Efectos de sonido
+    private Music musicaFondo;      // Audios largos
+    private Sound efectoSalto;      // Efectos cortos (WAV, MP3)
 
     public PantallaRunner(Juego juego) {
         this.juego = juego;
@@ -66,9 +77,28 @@ public class PantallaRunner extends Pantalla
         crearTexto();
         cargarPuntos();
         crearHUD();
+        crearAudio();
 
         //Gdx.input.setInputProcessor(new ProcesadorEntrada());
         Gdx.input.setInputProcessor(escenaHUD);
+    }
+
+    private void crearAudio() {
+        // PPP
+        // cargar preferencias
+        // preguntar si la preferencia de sonido es true
+        AssetManager manager = new AssetManager();
+        manager.load("runner/marioBros.mp3", Music.class);  // programa la carga
+        manager.load("runner/moneda.mp3", Sound.class);
+        manager.finishLoading();    // ESPERA
+        musicaFondo = manager.get("runner/marioBros.mp3");
+        musicaFondo.setVolume(0.1f);
+        musicaFondo.setLooping(true);
+        musicaFondo.play();
+
+        efectoSalto = manager.get("runner/moneda.mp3");
+
+        // No la pref es false
     }
 
     private void crearHUD() {
@@ -96,24 +126,45 @@ public class PantallaRunner extends Pantalla
             public void changed(ChangeEvent event, Actor actor) {
                 Touchpad pad = (Touchpad)actor;
                 if (pad.getKnobPercentX() > 0.20) { // Más de 20% de desplazamiento DERECHA
-                    //mario.setEstadoMover(Personaje.EstadoMovimento.DERECHA);
-                    mario.sprite.setX(mario.sprite.getX()+10);
+                    mario.setEstadoCaminando(EstadoCaminando.DERECHA);
                 } else if ( pad.getKnobPercentX() < -0.20 ) {   // Más de 20% IZQUIERDA
-                    //mario.setEstadoMover(Personaje.EstadoMovimento.IZQUIERDA);
-                    mario.sprite.setX(mario.sprite.getX()-10);
-                } else {
-                    //mario.setEstadoMover(Personaje.EstadoMovimento.QUIETO);
+                    mario.setEstadoCaminando(EstadoCaminando.IZQUIERDA);
+                } else if (pad.getKnobPercentX()==0) {
+                    mario.setEstadoCaminando(EstadoCaminando.QUIETO);
                 }
                 // Y
                 if (pad.getKnobPercentY()>0.5) {
-                    Gdx.app.log("SALTO", "% " + pad.getKnobPercentY());
-                    mario.saltar();
+                    if (mario.getEstado()!=EstadoMario.SALTANDO) {
+                        mario.saltar();
+                        efectoSalto.play();
+                    }
                 }
             }
         });
         pad.setColor(1,1,1,0.7f);   // Transparente
         // Crea la escena y agrega el pad
         escenaHUD.addActor(pad);
+
+        // Botón de disparo
+        Texture texturaDisparo = new Texture("space/disparo.png");
+        TextureRegionDrawable region = new TextureRegionDrawable(new TextureRegion(
+                texturaDisparo));
+
+        ImageButton btnDisparo = new ImageButton(region);
+        btnDisparo.setPosition(ANCHO*0.9f, 60);
+        // Programar listener del botón
+        btnDisparo.addListener(new ClickListener() {
+            @Override
+            public void clicked(InputEvent event, float x, float y) {
+                super.clicked(event, x, y);
+                if (arrBolasFuego.size < 20) {
+                    BolaFuego bolaFuego = new BolaFuego(texturaBolaFuego, mario.sprite.getX(),
+                            mario.sprite.getY() + mario.sprite.getHeight()*0.5F);
+                    arrBolasFuego.add(bolaFuego);
+                }
+            }
+        });
+        escenaHUD.addActor(btnDisparo);
     }
 
     private void cargarPuntos() {
@@ -264,12 +315,12 @@ public class PantallaRunner extends Pantalla
             if (tiempoBase>0) {
                 tiempoBase -= 0.01f;
             }
-            Goomba goomba = new Goomba(texturaGoomba, ANCHO, 60 + MathUtils.random(0,2)*100);  // 60, 120, 180
+            Goomba goomba = new Goomba(texturaGoomba, mario.sprite.getX()+ANCHO/2, 60 + MathUtils.random(0,2)*100);  // 60, 120, 180
             arrEnemigos.add(goomba);
         }
         for (int i = arrEnemigos.size-1; i >= 0; i--) {
             Goomba goomba = arrEnemigos.get(i);
-            if (goomba.sprite.getX()<-goomba.sprite.getWidth()) {
+            if (goomba.sprite.getX() < mario.sprite.getX() - ANCHO/2 - goomba.sprite.getWidth()) {
                 arrEnemigos.removeIndex(i);
             }
         }
