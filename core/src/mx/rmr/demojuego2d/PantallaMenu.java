@@ -10,6 +10,8 @@ import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
 import com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable;
 import com.badlogic.gdx.utils.Align;
 
+import mx.rmr.demojuego2d.plataformas.PantallaMapas;
+
 public class PantallaMenu extends Pantalla
 {
     private final Juego juego;      // para setScreen
@@ -52,7 +54,8 @@ public class PantallaMenu extends Pantalla
                 super.clicked(event, x, y);
                 // Cambiamos de pantalla (el objeto juego, setScreen)
                 //juego.setScreen(new PantallaSpaceInvaders(juego));
-                juego.setScreen(new PantallaRunner(juego));
+                //juego.setScreen(new PantallaRunner(juego));
+                juego.setScreen(new PantallaMapas(juego));
             }
         });
 

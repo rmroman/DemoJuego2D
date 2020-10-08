@@ -130,6 +130,9 @@ public class PantallaRunner extends Pantalla
                 } else if ( pad.getKnobPercentX() < -0.20 ) {   // Más de 20% IZQUIERDA
                     mario.setEstadoCaminando(EstadoCaminando.IZQUIERDA);
                 } else if (pad.getKnobPercentX()==0) {
+                    //if (mario.getEstadoCaminando()==EstadoCaminando.DERECHA) {
+                        //mario.setEstadoCaminando(EstadoCaminando.QUIETO_DERECHA);
+                    //}
                     mario.setEstadoCaminando(EstadoCaminando.QUIETO);
                 }
                 // Y
