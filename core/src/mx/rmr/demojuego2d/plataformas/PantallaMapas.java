@@ -29,6 +29,7 @@ import mx.rmr.demojuego2d.Alien;
 import mx.rmr.demojuego2d.BolaFuego;
 import mx.rmr.demojuego2d.Juego;
 import mx.rmr.demojuego2d.Pantalla;
+import mx.rmr.demojuego2d.Texto;
 
 public class PantallaMapas extends Pantalla
 {
@@ -42,11 +43,14 @@ public class PantallaMapas extends Pantalla
     // PAUSA
     private EstadoJuego estado = EstadoJuego.INICIANDO;     // JUGANDO, PAUSADO, PIERDE, GANA
     private EscenaPausa escenaPausa;
+
     // Cámara/Vista HUD
     private OrthographicCamera camaraHUD;
     private Viewport vistaHUD;
 
+    // INTRO
     private float timerPausa;   // 3 seg
+    private Texto texto;
 
 
     public PantallaMapas(Juego juego) {
@@ -56,6 +60,7 @@ public class PantallaMapas extends Pantalla
     public void show() {
         crearMapa();
         crearHUD();
+        texto = new Texto("runner/game.fnt");
         Gdx.input.setInputProcessor(new ProcesadorEntrada());
     }
 
@@ -101,6 +106,9 @@ public class PantallaMapas extends Pantalla
         // INICIANDO
         if (estado==EstadoJuego.INICIANDO) {
             Gdx.app.log("INICIANDO", "Tiempo: " + (int)(timerPausa));
+            batch.begin();
+            texto.mostrarMensaje(batch, ""+(int)(3-timerPausa), ANCHO/2, ALTO/2);
+            batch.end();
         }
 
         // USAR otra CÁMARA/VISTA
