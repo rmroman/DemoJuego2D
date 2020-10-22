@@ -16,12 +16,14 @@ import com.badlogic.gdx.maps.tiled.TiledMapTileLayer;
 import com.badlogic.gdx.maps.tiled.TmxMapLoader;
 import com.badlogic.gdx.maps.tiled.renderers.OrthogonalTiledMapRenderer;
 import com.badlogic.gdx.math.MathUtils;
+import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.scenes.scene2d.InputEvent;
 import com.badlogic.gdx.scenes.scene2d.Stage;
 import com.badlogic.gdx.scenes.scene2d.ui.Image;
 import com.badlogic.gdx.scenes.scene2d.ui.ImageButton;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
 import com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable;
+import com.badlogic.gdx.utils.Timer;
 import com.badlogic.gdx.utils.viewport.StretchViewport;
 import com.badlogic.gdx.utils.viewport.Viewport;
 
@@ -36,6 +38,13 @@ public class PantallaMapas extends Pantalla
     // Mapa
     private TiledMap mapa;
     private OrthogonalTiledMapRenderer rendererMapa;
+
+    public static final float ANCHO_MAPA = 80*32;
+
+    // PERSONAJE
+    private Texture texturaPersonaje;       // Aquí cargamos la imagen marioSprite.png con varios frames
+    private Personaje mario;
+    public static final int TAM_CELDA = 16; // PERSONAJE
 
     // timer
     private float timerBloque;
@@ -52,16 +61,32 @@ public class PantallaMapas extends Pantalla
     private float timerPausa;   // 3 seg
     private Texto texto;
 
+    // MAnager
+    private AssetManager manager;
+
 
     public PantallaMapas(Juego juego) {
     }
 
     @Override
     public void show() {
+        manager = new AssetManager();
         crearMapa();
         crearHUD();
+        crearPersonaje();
+
         texto = new Texto("runner/game.fnt");
         Gdx.input.setInputProcessor(new ProcesadorEntrada());
+    }
+
+    private void crearPersonaje() {
+        // Cargar frames
+        texturaPersonaje = new Texture("mapas/marioSprite_32.png");
+        // Crear el personaje
+        mario = new Personaje(texturaPersonaje);
+        // Posición inicial del personaje
+        mario.getSprite().setPosition(Pantalla.ANCHO / 10, Pantalla.ALTO * 0.90f);
+
     }
 
     private void crearHUD() {
@@ -74,9 +99,9 @@ public class PantallaMapas extends Pantalla
     private void crearMapa() {
         AssetManager manager = new AssetManager();
         manager.setLoader(TiledMap.class, new TmxMapLoader(new InternalFileHandleResolver()));
-        manager.load("mapas/mapa_mario.tmx", TiledMap.class);
+        manager.load("mapas/Mapa.tmx", TiledMap.class);
         manager.finishLoading();
-        mapa = manager.get("mapas/mapa_mario.tmx");
+        mapa = manager.get("mapas/Mapa.tmx");
         rendererMapa = new OrthogonalTiledMapRenderer(mapa);
 
         // Modificar el mapa
@@ -91,8 +116,9 @@ public class PantallaMapas extends Pantalla
     public void render(float delta) {
         // Actualizar
         if (estado == EstadoJuego.JUGANDO) {
-            actualizarCamara();
-            quitarBloques(delta);
+            //actualizarCamara();
+            //quitarBloques(delta);
+            moverPersonaje();
         }
         actualizarTimer(delta);
 
@@ -102,6 +128,10 @@ public class PantallaMapas extends Pantalla
 
         rendererMapa.setView(camara);
         rendererMapa.render();
+
+        batch.begin();
+        mario.render(batch);    // Dibuja el personaje
+        batch.end();
 
         // INICIANDO
         if (estado==EstadoJuego.INICIANDO) {
@@ -120,6 +150,129 @@ public class PantallaMapas extends Pantalla
             batch.end();
 
             escenaPausa.sprite.rotate(5);
+        }
+    }
+
+    private void moverPersonaje() {
+        // Prueba caída libre inicial o movimiento horizontal
+        switch (mario.getEstadoMovimiento()) {
+            case INICIANDO:     // Mueve el personaje en Y hasta que se encuentre sobre un bloque
+                // Los bloques en el mapa son de 16x16
+                // Calcula la celda donde estaría después de moverlo
+                int celdaX = (int) (mario.getX() / TAM_CELDA);
+                int celdaY = (int) ((mario.getY() + mario.VELOCIDAD_Y) / TAM_CELDA);
+                // Recuperamos la celda en esta posición
+                // La capa 0 es el fondo
+                TiledMapTileLayer capa = (TiledMapTileLayer) mapa.getLayers().get(1);
+                TiledMapTileLayer.Cell celda = capa.getCell(celdaX, celdaY);
+                // probar si la celda está ocupada
+                if (celda == null) {
+                    // Celda vacía, entonces el personaje puede avanzar
+                    mario.caer();
+                } else if (!esEstrella(celda)) {  // Las estrellas no lo detienen :)
+                    // Dejarlo sobre la celda que lo detiene
+                    mario.setPosicion(mario.getX(), (celdaY + 1) * TAM_CELDA);
+                    mario.setEstadoMovimiento(Personaje.EstadoMovimiento.QUIETO);
+                }
+                break;
+            case MOV_DERECHA:       // Se mueve horizontal
+            case MOV_IZQUIERDA:
+                probarChoqueParedes();      // Prueba si debe moverse
+                break;
+        }
+
+        // Prueba si debe caer por llegar a un espacio vacío
+        if (mario.getEstadoMovimiento() != Personaje.EstadoMovimiento.INICIANDO
+                && (mario.getEstadoSalto() != Personaje.EstadoSalto.SUBIENDO)) {
+            // Calcula la celda donde estaría después de moverlo
+            int celdaX = (int) (mario.getX() / TAM_CELDA);
+            int celdaY = (int) ((mario.getY() + mario.VELOCIDAD_Y) / TAM_CELDA);
+            // Recuperamos la celda en esta posición
+            // La capa 0 es el fondo
+            TiledMapTileLayer capa = (TiledMapTileLayer) mapa.getLayers().get(1);
+            TiledMapTileLayer.Cell celdaAbajo = capa.getCell(celdaX, celdaY);
+            TiledMapTileLayer.Cell celdaDerecha = capa.getCell(celdaX + 1, celdaY);
+            // probar si la celda está ocupada
+            if ((celdaAbajo == null && celdaDerecha == null) || esEstrella(celdaAbajo) || esEstrella(celdaDerecha)) {
+                // Celda vacía, entonces el personaje puede avanzar
+                mario.caer();
+                mario.setEstadoSalto(Personaje.EstadoSalto.CAIDA_LIBRE);
+            } else {
+                // Dejarlo sobre la celda que lo detiene
+                mario.setPosicion(mario.getX(), (celdaY + 1) * TAM_CELDA);
+                mario.setEstadoSalto(Personaje.EstadoSalto.EN_PISO);
+            }
+        }
+
+        // Saltar
+        switch (mario.getEstadoSalto()) {
+            case SUBIENDO:
+            case BAJANDO:
+                mario.actualizarSalto();    // Actualizar posición en 'y'
+                break;
+        }
+    }
+
+    // Verifica si esta casilla tiene una estrella (simplificar con la anterior)
+    private boolean esEstrella(TiledMapTileLayer.Cell celda) {
+        if (celda==null) {
+            return false;
+        }
+        Object propiedad = celda.getTile().getProperties().get("tipo");
+        return "estrella".equals(propiedad);
+    }
+
+    // Verifica si esta casilla tiene un hongo (simplificar con las anteriores)
+    private boolean esHongo(TiledMapTileLayer.Cell celda) {
+        if (celda==null) {
+            return false;
+        }
+        Object propiedad = celda.getTile().getProperties().get("tipo");
+        return "hongo".equals(propiedad);
+    }
+
+    // Verifica si esta casilla tiene una moneda
+    private boolean esMoneda(TiledMapTileLayer.Cell celda) {
+        if (celda==null) {
+            return false;
+        }
+        Object propiedad = celda.getTile().getProperties().get("tipo");
+
+        return "moneda".equals(propiedad);
+    }
+
+    // Prueba si puede moverse a la izquierda o derecha
+    private void probarChoqueParedes() {
+        Personaje.EstadoMovimiento estado = mario.getEstadoMovimiento();
+        // Quitar porque este método sólo se llama cuando se está moviendo
+        if ( estado!= Personaje.EstadoMovimiento.MOV_DERECHA && estado!=Personaje.EstadoMovimiento.MOV_IZQUIERDA){
+            return;
+        }
+        float px = mario.getX();    // Posición actual
+        // Posición después de actualizar
+        px = mario.getEstadoMovimiento()==Personaje.EstadoMovimiento.MOV_DERECHA? px+Personaje.VELOCIDAD_X:
+                px-Personaje.VELOCIDAD_X;
+        int celdaX = (int)(px/TAM_CELDA);   // Casilla del personaje en X
+        if (mario.getEstadoMovimiento()== Personaje.EstadoMovimiento.MOV_DERECHA) {
+            celdaX++;   // Casilla del lado derecho
+        }
+        int celdaY = (int)(mario.getY()/TAM_CELDA); // Casilla del personaje en Y
+        TiledMapTileLayer capaPlataforma = (TiledMapTileLayer) mapa.getLayers().get(1);
+        if ( capaPlataforma.getCell(celdaX,celdaY) != null || capaPlataforma.getCell(celdaX,celdaY+1) != null ) {
+            // Colisionará, dejamos de moverlo
+            if ( esEstrella(capaPlataforma.getCell(celdaX,celdaY)) ) {
+                // Borrar esta estrella y contabilizar
+                capaPlataforma.setCell(celdaX,celdaY,null);
+            } else if ( esEstrella(capaPlataforma.getCell(celdaX,celdaY+1)) ) {
+                // Borrar esta estrella y contabilizar
+                capaPlataforma.setCell(celdaX,celdaY+1,null);
+            } else if ( esHongo( capaPlataforma.getCell(celdaX,celdaY) ) ) {
+
+            } else {
+                mario.setEstadoMovimiento(Personaje.EstadoMovimiento.QUIETO);
+            }
+        } else {
+            mario.actualizar();
         }
     }
 
@@ -166,7 +319,7 @@ public class PantallaMapas extends Pantalla
     {
         @Override
         public boolean touchDown(int screenX, int screenY, int pointer, int button) {
-            if (estado == EstadoJuego.JUGANDO) {
+            /*if (estado == EstadoJuego.JUGANDO) {
                 estado = EstadoJuego.PAUSADO;
                 // Crear escenaPausa
                 if (escenaPausa==null) {
@@ -179,6 +332,24 @@ public class PantallaMapas extends Pantalla
                 Gdx.app.log("PAUSA", "Cambia a jugando....");
             }
             return true;
+             */
+
+            Vector3 v = new Vector3(screenX, screenY, 0);
+            camaraHUD.unproject(v);
+            if (estado==EstadoJuego.JUGANDO) {
+                if (v.y > ALTO/2) {
+                    // Saltar
+                    mario.saltar();
+                    Gdx.app.log("MARIO", "Inciia salto mario");
+                } else if (v.x > ANCHO/2 && mario.getEstadoMovimiento() != Personaje.EstadoMovimiento.INICIANDO) {
+                    // Derecha, hacer que el personaje se mueva a la derecha
+                    mario.setEstadoMovimiento(Personaje.EstadoMovimiento.MOV_DERECHA);
+                } else if (v.x <= ANCHO/2 && mario.getEstadoMovimiento() != Personaje.EstadoMovimiento.INICIANDO) {
+                    // Izquierda, hacer que el personaje se mueva a la izquierda
+                    mario.setEstadoMovimiento(Personaje.EstadoMovimiento.MOV_IZQUIERDA);
+                }
+            }
+            return true;    // Indica que ya procesó el evento
         }
 
         @Override
