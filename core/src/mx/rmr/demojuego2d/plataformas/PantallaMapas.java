@@ -8,6 +8,8 @@ import com.badlogic.gdx.assets.loaders.resolvers.InternalFileHandleResolver;
 import com.badlogic.gdx.graphics.OrthographicCamera;
 import com.badlogic.gdx.graphics.Pixmap;
 import com.badlogic.gdx.graphics.Texture;
+import com.badlogic.gdx.graphics.g2d.ParticleEffect;
+import com.badlogic.gdx.graphics.g2d.ParticleEmitter;
 import com.badlogic.gdx.graphics.g2d.Sprite;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.g2d.TextureRegion;
@@ -64,6 +66,10 @@ public class PantallaMapas extends Pantalla
     // MAnager
     private AssetManager manager;
 
+    // Partículas
+    private ParticleEffect pe;
+    private ParticleEmitter emisor;
+
 
     public PantallaMapas(Juego juego) {
     }
@@ -74,6 +80,12 @@ public class PantallaMapas extends Pantalla
         crearMapa();
         crearHUD();
         crearPersonaje();
+
+        pe = new ParticleEffect();
+        pe.load(Gdx.files.internal("mapas/lluvia.p"), Gdx.files.internal("."));
+        emisor = pe.getEmitters().get(0);
+        emisor.setPosition(ANCHO/2, ALTO/2);
+        pe.start();
 
         texto = new Texto("runner/game.fnt");
         Gdx.input.setInputProcessor(new ProcesadorEntrada());
@@ -128,9 +140,12 @@ public class PantallaMapas extends Pantalla
 
         rendererMapa.setView(camara);
         rendererMapa.render();
+        
 
         batch.begin();
         mario.render(batch);    // Dibuja el personaje
+        pe.draw(batch);
+        pe.update(delta);
         batch.end();
 
         // INICIANDO
