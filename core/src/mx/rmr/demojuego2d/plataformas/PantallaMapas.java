@@ -68,7 +68,7 @@ public class PantallaMapas extends Pantalla
 
     // Partículas
     private ParticleEffect pe;
-    private ParticleEmitter emisor;
+    private ParticleEmitter emisor;     // Simulación
 
 
     public PantallaMapas(Juego juego) {
@@ -81,14 +81,18 @@ public class PantallaMapas extends Pantalla
         crearHUD();
         crearPersonaje();
 
-        pe = new ParticleEffect();
-        pe.load(Gdx.files.internal("mapas/lluvia.p"), Gdx.files.internal("."));
-        emisor = pe.getEmitters().get(0);
-        emisor.setPosition(ANCHO/2, ALTO/2);
-        pe.start();
+        crearSistemaParticulas();
 
         texto = new Texto("runner/game.fnt");
         Gdx.input.setInputProcessor(new ProcesadorEntrada());
+    }
+
+    private void crearSistemaParticulas() {
+        pe = new ParticleEffect();
+        pe.load(Gdx.files.internal("lluvia.pe"), Gdx.files.internal(""));
+        emisor = pe.getEmitters().get(0);
+        emisor.setPosition(0, ALTO);
+        pe.start();
     }
 
     private void crearPersonaje() {

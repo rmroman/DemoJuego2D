@@ -31,7 +31,8 @@ public class PantallaMenu extends Pantalla
      */
     @Override
     public void show() {
-        texturaFondo = new Texture("fondoMenu.jpg");
+        //texturaFondo = new Texture("fondoMenu.jpg");
+        texturaFondo = juego.getManager().get("fondoMenu.jpg");
 
         crearMenu();
     }
@@ -40,10 +41,12 @@ public class PantallaMenu extends Pantalla
         escenaMenu = new Stage(vista);
 
         // btnJugar
-        Texture texturaBtnJugar = new Texture("botonesMenu/btnJugar.png");
+        //Texture texturaBtnJugar = new Texture("botonesMenu/btnJugar.png");
+        Texture texturaBtnJugar = juego.getManager().get("botonesMenu/btnJugar.png");
         TextureRegionDrawable trdBtnJugar = new TextureRegionDrawable(new TextureRegion(texturaBtnJugar));
         // Inverso
-        Texture texturaBtnJugarInverso = new Texture("botonesMenu/btnJugarInverso.png");
+        //Texture texturaBtnJugarInverso = new Texture("botonesMenu/btnJugarInverso.png");
+        Texture texturaBtnJugarInverso = juego.getManager().get("botonesMenu/btnJugarInverso.png");
         TextureRegionDrawable trdBtnJugarInverso = new TextureRegionDrawable(new TextureRegion(texturaBtnJugarInverso));
         ImageButton btnJugar = new ImageButton(trdBtnJugar, trdBtnJugarInverso);
         btnJugar.setPosition(ANCHO/2, ALTO/2, Align.center);
@@ -54,8 +57,8 @@ public class PantallaMenu extends Pantalla
                 super.clicked(event, x, y);
                 // Cambiamos de pantalla (el objeto juego, setScreen)
                 //juego.setScreen(new PantallaSpaceInvaders(juego));
-                //juego.setScreen(new PantallaRunner(juego));
-                juego.setScreen(new PantallaMapas(juego));
+                juego.setScreen(new PantallaRunner(juego));
+                //juego.setScreen(new PantallaMapas(juego));
             }
         });
 
